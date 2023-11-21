@@ -13,6 +13,16 @@ v8::Local<v8::Value> CallMethodWithArgs(v8::Isolate* isolate,
                                         v8::Local<v8::Object> obj,
                                         const char* method,
                                         ValueVector* args) {
+  v8::HandleScope handle_scope(isolate);
+  std::unique_ptr<node::CallbackScope> callback_scope;
+
+  // Only set up the node::CallbackScope if there's a node environment.
+  if (node::Environment::GetCurrent(isolate)) {
+    node::async_context async_context = {};
+    callback_scope = std::make_unique<node::CallbackScope>(
+        isolate, v8::Object::New(isolate), async_context);
+  }
+
   // Perform microtask checkpoint after running JavaScript.
   gin_helper::MicrotasksScope microtasks_scope(
       isolate, obj->GetCreationContextChecked()->GetMicrotaskQueue(), true);
