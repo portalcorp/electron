@@ -1,4 +1,6 @@
 // Copyright (c) 2015 GitHub, Inc.
+// Copyright (c) 2023 Microsoft, Inc.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by the MIT license that can be
 // found in the LICENSE file.
 
@@ -13,6 +15,7 @@
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/containers/fixed_flat_set.h"
+#include "base/environment.h"
 #include "base/feature_list.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -20,6 +23,7 @@
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "content/public/common/content_switches.h"
 #include "electron/electron_version.h"
+#include "electron/fuses.h"
 #include "gin/array_buffer.h"
 #include "gin/public/isolate_holder.h"
 #include "gin/v8_initializer.h"
@@ -35,11 +39,20 @@
 #endif
 
 #if BUILDFLAG(IS_LINUX)
-#include "base/environment.h"
 #include "base/posix/global_descriptors.h"
 #include "base/strings/string_number_conversions.h"
 #include "components/crash/core/app/crash_switches.h"  // nogncheck
 #include "content/public/common/content_descriptors.h"
+#endif
+
+#if BUILDFLAG(IS_MAC)
+#include "base/apple/osstatus_logging.h"
+#include "base/apple/scoped_cftyperef.h"
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/Security.h>
+
+#include <unistd.h>
 #endif
 
 #if !IS_MAS_BUILD()
@@ -47,6 +60,8 @@
 #include "shell/app/electron_crash_reporter_client.h"
 #include "shell/common/crash_keys.h"
 #endif
+
+namespace electron {
 
 namespace {
 
@@ -77,14 +92,54 @@ void ExitIfContainsDisallowedFlags(const std::vector<std::string>& argv) {
   }
 }
 
+#if BUILDFLAG(IS_MAC)
+bool IsInvokedByCurrentApp() {
+  // Get and check the code signature of current app.
+  base::apple::ScopedCFTypeRef<SecCodeRef> self_code;
+  OSStatus status =
+      SecCodeCopySelf(kSecCSDefaultFlags, self_code.InitializeInto());
+  if (status != errSecSuccess) {
+    OSSTATUS_LOG(ERROR, status) << "SecCodeCopyGuestWithAttributes";
+    return false;
+  }
+  // Get the code signature of parent.
+  pid_t parent_pid = getppid();
+  base::apple::ScopedCFTypeRef<CFNumberRef> parent_cf(
+      CFNumberCreate(nullptr, kCFNumberIntType, &parent_pid));
+  const void* attribute_keys[] = {kSecGuestAttributePid};
+  const void* attribute_values[] = {parent_cf.get()};
+  base::apple::ScopedCFTypeRef<CFDictionaryRef> attributes(CFDictionaryCreate(
+      nullptr, attribute_keys, attribute_values, std::size(attribute_keys),
+      &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+  base::apple::ScopedCFTypeRef<SecCodeRef> parent_code;
+  status = SecCodeCopyGuestWithAttributes(nullptr, attributes.get(),
+                                          kSecCSDefaultFlags,
+                                          parent_code.InitializeInto());
+  if (status != errSecSuccess) {
+    OSSTATUS_LOG(ERROR, status) << "SecCodeCopyGuestWithAttributes";
+    return false;
+  }
+  // Get the requirement of current app's code signature.
+  base::apple::ScopedCFTypeRef<SecRequirementRef> self_requirement;
+  status = SecCodeCopyDesignatedRequirement(self_code.get(), kSecCSDefaultFlags,
+                                            self_requirement.InitializeInto());
+  if (status != errSecSuccess) {
+    OSSTATUS_LOG(ERROR, status) << "SecCodeCopyDesignatedRequirement";
+    return false;
+  }
+  // Check whether the parent meets the signature requirement of current app.
+  status = SecCodeCheckValidity(parent_code.get(), kSecCSDefaultFlags,
+                                self_requirement.get());
+  return status == errSecSuccess;
+}
+#endif
+
 #if IS_MAS_BUILD()
 void SetCrashKeyStub(const std::string& key, const std::string& value) {}
 void ClearCrashKeyStub(const std::string& key) {}
 #endif
 
 }  // namespace
-
-namespace electron {
 
 v8::Local<v8::Value> GetParameters(v8::Isolate* isolate) {
   std::map<std::string, std::string> keys;
@@ -101,12 +156,36 @@ int NodeMain(int argc, char* argv[]) {
     exit(1);
   }
 
+  auto os_env = base::Environment::Create();
+  bool node_options_enabled = electron::fuses::IsNodeOptionsEnabled();
+#if BUILDFLAG(IS_MAC)
+  if (node_options_enabled && os_env->HasVar("NODE_OPTIONS")) {
+    // On macOS, it is forbidden to run sandboxed app with custom arguments
+    // from another app, i.e. args are discarded in following call:
+    //   exec("Sandboxed.app", ["--custom-args-will-be-discarded"])
+    // However it is possible to bypass the restriction by abusing the node mode
+    // of Electron apps:
+    //   exec("Electron.app", {env: {ELECTRON_RUN_AS_NODE: "1",
+    //                               NODE_OPTIONS: "--require 'bad.js'"}})
+    // To prevent Electron apps from being used to work around macOS security
+    // restrictions, when NODE_OPTIONS is passed it will be checked whether
+    // this process is invoked by its own app.
+    if (!IsInvokedByCurrentApp()) {
+      LOG(ERROR) << "NODE_OPTIONS is disabled because this process is invoked "
+                    "by other apps.";
+      node_options_enabled = false;
+    }
+  }
+#endif  // BUILDFLAG(IS_MAC)
+  if (!node_options_enabled) {
+    os_env->UnSetVar("NODE_OPTIONS");
+  }
+
 #if BUILDFLAG(IS_WIN)
   v8_crashpad_support::SetUp();
 #endif
 
 #if BUILDFLAG(IS_LINUX)
-  auto os_env = base::Environment::Create();
   std::string fd_string, pid_string;
   if (os_env->GetVar("CRASHDUMP_SIGNAL_FD", &fd_string) &&
       os_env->GetVar("CRASHPAD_HANDLER_PID", &pid_string)) {
