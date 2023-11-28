@@ -56,3 +56,4 @@ test_fix_edge_snapshot_stack_traces.patch
 chore_remove_use_of_deprecated_kmaxlength.patch
 api_remove_allcan_read_write.patch
 fix_make_sharedarraybuffer_optional_in_freeze_intrinsics_js.patch
+fix_avx_detection.patch
