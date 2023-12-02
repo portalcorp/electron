@@ -21,6 +21,7 @@ class NativeBrowserViewMac : public NativeBrowserView {
   void SetBounds(const gfx::Rect& bounds) override;
   gfx::Rect GetBounds() override;
   void SetBackgroundColor(SkColor color) override;
+  void SetRoundedBorders(float radius) override;
 };
 
 }  // namespace electron

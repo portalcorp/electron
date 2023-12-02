@@ -7,13 +7,16 @@
 #include "shell/browser/ui/views/inspectable_web_contents_view_views.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/background.h"
+#include "ui/views/border.h"
 #include "ui/views/view.h"
 
 namespace electron {
 
 NativeBrowserViewViews::NativeBrowserViewViews(
     InspectableWebContents* inspectable_web_contents)
-    : NativeBrowserView(inspectable_web_contents) {}
+    : NativeBrowserView(inspectable_web_contents) {
+      SetRoundedBorders(10);
+}
 
 NativeBrowserViewViews::~NativeBrowserViewViews() = default;
 
@@ -132,6 +135,14 @@ void NativeBrowserViewViews::SetBackgroundColor(SkColor color) {
   auto* view = iwc_view->GetView();
   view->SetBackground(views::CreateSolidBackground(color));
   view->SchedulePaint();
+}
+
+void NativeBrowserViewViews::SetRoundedBorders(int corner_radius) {
+  SkColor background_color = view->background()->get_color();
+  auto background = views::CreateRoundedRectBackground(background_color, corner_radius);
+  view->SetBackground(std::move(background));
+  auto border = views::CreateRoundedRectBorder(/*border_thickness=*/1, corner_radius, SK_ColorBLACK);
+  view->SetBorder(std::move(border));
 }
 
 // static

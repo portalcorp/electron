@@ -23,6 +23,7 @@ NativeBrowserViewMac::NativeBrowserViewMac(
     return;
   auto* view = iwc_view->GetNativeView().GetNativeNSView();
   view.autoresizingMask = kDefaultAutoResizingMask;
+  SetRoundedBorders(10.0);
 }
 
 NativeBrowserViewMac::~NativeBrowserViewMac() = default;
@@ -85,6 +86,15 @@ void NativeBrowserViewMac::SetBackgroundColor(SkColor color) {
   auto* view = iwc_view->GetNativeView().GetNativeNSView();
   view.wantsLayer = YES;
   view.layer.backgroundColor = skia::CGColorCreateFromSkColor(color).get();
+}
+
+void NativeBrowserViewMac::SetRoundedBorders(float radius) {
+  auto* iwc_view = GetInspectableWebContentsView();
+  if (!iwc_view)
+    return;
+  auto* view = iwc_view->GetNativeView().GetNativeNSView();
+  view.wantsLayer = YES; // Ensure the view uses a CALayer
+  view.layer.cornerRadius = radius;
 }
 
 // static
