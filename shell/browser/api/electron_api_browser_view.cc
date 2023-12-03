@@ -186,6 +186,10 @@ void BrowserView::SetBackgroundColor(const std::string& color_name) {
   }
 }
 
+void BrowserView::SetRoundedBorders(int corner_radius) {
+  view_->SetRoundedBorders(corner_radius);
+}
+
 v8::Local<v8::Value> BrowserView::GetWebContents(v8::Isolate* isolate) {
   if (web_contents_.IsEmpty()) {
     return v8::Null(isolate);
@@ -202,6 +206,7 @@ void BrowserView::FillObjectTemplate(v8::Isolate* isolate,
       .SetMethod("setBounds", &BrowserView::SetBounds)
       .SetMethod("getBounds", &BrowserView::GetBounds)
       .SetMethod("setBackgroundColor", &BrowserView::SetBackgroundColor)
+      .SetMethod("setRoundedCorners", &BrowserView::SetRoundedBorders)
       .SetProperty("webContents", &BrowserView::GetWebContents)
       .Build();
 }

@@ -82,6 +82,7 @@ class BrowserView : public gin::Wrappable<BrowserView>,
  private:
   void SetAutoResize(AutoResizeFlags flags);
   void SetBackgroundColor(const std::string& color_name);
+  void SetRoundedBorders(int corner_radius);
   v8::Local<v8::Value> GetWebContents(v8::Isolate*);
 
   v8::Global<v8::Value> web_contents_;

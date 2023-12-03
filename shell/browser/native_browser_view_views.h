@@ -26,7 +26,7 @@ class NativeBrowserViewViews : public NativeBrowserView {
   void SetBounds(const gfx::Rect& bounds) override;
   gfx::Rect GetBounds() override;
   void SetBackgroundColor(SkColor color) override;
-  void SetRoundedBorders(int corner_radius);
+  void SetRoundedBorders(int corner_radius) override;
 
   // WebContentsObserver:
   void RenderViewReady() override;

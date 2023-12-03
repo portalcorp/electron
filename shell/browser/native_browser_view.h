@@ -47,6 +47,7 @@ class NativeBrowserView : public content::WebContentsObserver {
   virtual void SetBounds(const gfx::Rect& bounds) = 0;
   virtual gfx::Rect GetBounds() = 0;
   virtual void SetBackgroundColor(SkColor color) = 0;
+  virtual void SetRoundedBorders(int corner_radius) = 0;
 
  protected:
   explicit NativeBrowserView(InspectableWebContents* inspectable_web_contents);
