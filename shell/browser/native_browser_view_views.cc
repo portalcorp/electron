@@ -15,7 +15,7 @@ namespace electron {
 NativeBrowserViewViews::NativeBrowserViewViews(
     InspectableWebContents* inspectable_web_contents)
     : NativeBrowserView(inspectable_web_contents) {
-  SetRoundedBorders(10);
+  SetRoundedBorders(25);
 }
 
 NativeBrowserViewViews::~NativeBrowserViewViews() = default;
@@ -144,15 +144,13 @@ void NativeBrowserViewViews::SetRoundedBorders(int corner_radius) {
   auto* view = iwc_view->GetView();
   SkColor background_color = SK_ColorWHITE;
   if (view->background()) {
-    std::cout << "NativeBrowserViewViews::SetRoundedBorders9" << std::endl;
     background_color = view->background()->get_color();
   }
-  auto background =
-      views::CreateRoundedRectBackground(background_color, corner_radius);
-  view->SetBackground(std::move(background));
-  auto border = views::CreateRoundedRectBorder(/*border_thickness=*/1,
-                                               corner_radius, SK_ColorBLACK);
-  view->SetBorder(std::move(border));
+  view->SetBackground(
+      views::CreateRoundedRectBackground(background_color, corner_radius));
+  view->SetBorder(views::CreateRoundedRectBorder(/*border_thickness=*/3,
+                                                 corner_radius, SK_ColorRED));
+  view->SchedulePaint();
 }
 
 // static
